@@ -437,6 +437,9 @@ $('#chatClose').onclick=()=>$('#chatPanel').classList.remove('open');
 /* ================= SITE INIT ================= */
 function trackVisit(){ANALYTICS.visits++;const d=ymd(new Date());ANALYTICS.visitsByDay[d]=(ANALYTICS.visitsByDay[d]||0)+1;saveAnalytics();}
 function initSite(){
+  // preloader must always fade, even if something below throws
+  addEventListener('load',()=>setTimeout(()=>$('#preloader').classList.add('done'),1400));
+  setTimeout(()=>$('#preloader').classList.add('done'),3200);
   trackVisit();
   $('#yr').textContent=new Date().getFullYear();
   $('#ctAddress').textContent=STORE.content.address;
@@ -461,9 +464,6 @@ function initSite(){
   }),{threshold:.5});
   $$('[data-count]').forEach(el=>cio.observe(el));
   applyLang();renderBookingServices();bkStep(1);
-  // preloader
-  addEventListener('load',()=>setTimeout(()=>$('#preloader').classList.add('done'),1400));
-  setTimeout(()=>$('#preloader').classList.add('done'),3200);
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#lightbox').classList.remove('open');$('#chatPanel').classList.remove('open');closeModal();}});
 }
 
@@ -728,7 +728,16 @@ function adSettings(){
     STORE=seedStore();saveStore();applyLang();initContactBits();adDash();toast(t('toast_reset'));};
 }
 /* hash router */
-function route(){if(location.hash==='#/admin')adOpen();else if($('#admin').classList.contains('open'))adClose();}
+function route(){
+  try{
+    if(location.hash==='#/admin')adOpen();else if($('#admin').classList.contains('open'))adClose();
+  }catch(e){
+    // fail-safe: never leave a blank overlay — always show the login card
+    const a=$('#admin'),l=$('#adLogin');
+    if(a)a.classList.add('open');
+    if(l)l.style.display='grid';
+  }
+}
 addEventListener('hashchange',route);
 /* testimonials toggle also hides section */
 const _applyFeatures=applyFeatures;
