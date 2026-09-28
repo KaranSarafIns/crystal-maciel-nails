@@ -98,7 +98,21 @@ ad_view_site:"Ver sitio",ad_logout:"Cerrar sesión",ad_t_dash:"Resumen",ad_t_boo
 ad_t_gal:"Galería",ad_t_tst:"Reseñas",ad_t_content:"Contenido",ad_t_set:"Ajustes",
 mq:["Extensiones Gel-X","Manicura Rusa","Arte de Uñas Couture","Esculpido Acrílico","Pedicura de Lujo","Cromo y Ojo de Gato"],
 }};
-let LANG=localStorage.getItem('cmn_lang')||'en';
+/* Storage that can never throw: if the browser blocks site data (private mode,
+   privacy extensions), everything silently falls back to memory so the page
+   always renders instead of dying on a SecurityError. */
+const _memStore={};
+const safeLS={
+  getItem(k){try{const v=localStorage.getItem(k);return v===null?(_memStore['ls:'+k]??null):v;}catch(e){return _memStore['ls:'+k]??null;}},
+  setItem(k,v){try{localStorage.setItem(k,v);}catch(e){_memStore['ls:'+k]=String(v);}},
+  removeItem(k){try{localStorage.removeItem(k);}catch(e){delete _memStore['ls:'+k];}}
+};
+const safeSS={
+  getItem(k){try{const v=sessionStorage.getItem(k);return v===null?(_memStore['ss:'+k]??null):v;}catch(e){return _memStore['ss:'+k]??null;}},
+  setItem(k,v){try{sessionStorage.setItem(k,v);}catch(e){_memStore['ss:'+k]=String(v);}},
+  removeItem(k){try{sessionStorage.removeItem(k);}catch(e){delete _memStore['ss:'+k];}}
+};
+let LANG=safeLS.getItem('cmn_lang')||'en';
 const t=k=>{const v=I18N[LANG][k];return v!==undefined?v:(I18N.en[k]??k);};
 
 /* ================= STORE ================= */
@@ -153,19 +167,19 @@ testimonials:[
 ],
 settings:{chatbot:true,booking:true,gallery:true,testimonials:true}
 };}
-function loadJSON(k,f){try{const v=localStorage.getItem(k);return v?JSON.parse(v):f;}catch(e){return f;}}
+function loadJSON(k,f){try{const v=safeLS.getItem(k);return v?JSON.parse(v):f;}catch(e){return f;}}
 let STORE=loadJSON(K.store,null);
-if(!STORE){STORE=seedStore();localStorage.setItem(K.store,JSON.stringify(STORE));}
-const saveStore=()=>localStorage.setItem(K.store,JSON.stringify(STORE));
+if(!STORE){STORE=seedStore();safeLS.setItem(K.store,JSON.stringify(STORE));}
+const saveStore=()=>safeLS.setItem(K.store,JSON.stringify(STORE));
 let BOOKINGS=loadJSON(K.bookings,[]);
-const saveBookings=()=>localStorage.setItem(K.bookings,JSON.stringify(BOOKINGS));
+const saveBookings=()=>safeLS.setItem(K.bookings,JSON.stringify(BOOKINGS));
 let ANALYTICS=loadJSON(K.analytics,{visits:0,visitsByDay:{},bookingsTotal:0,bookingsByService:{},chatOpens:0});
-const saveAnalytics=()=>localStorage.setItem(K.analytics,JSON.stringify(ANALYTICS));
+const saveAnalytics=()=>safeLS.setItem(K.analytics,JSON.stringify(ANALYTICS));
 /* seed demo auth on first run (async) */
-(async()=>{if(!localStorage.getItem(K.auth)){const salt=cyrb53('cmn'+Date.now(),3);const hash=await sha256hex(salt+'::crystal2026');localStorage.setItem(K.auth,JSON.stringify({salt,hash}));}})();
-async function checkPassword(pw){try{const{salt,hash}=JSON.parse(localStorage.getItem(K.auth));return (await sha256hex(salt+'::'+pw))===hash;}catch(e){return false;}}
-async function setPassword(pw){const salt=cyrb53('cmn'+Date.now()+pw,11);const hash=await sha256hex(salt+'::'+pw);localStorage.setItem(K.auth,JSON.stringify({salt,hash}));}
-const isAuthed=()=>sessionStorage.getItem('cmn_admin_auth')==='1';
+(async()=>{if(!safeLS.getItem(K.auth)){const salt=cyrb53('cmn'+Date.now(),3);const hash=await sha256hex(salt+'::crystal2026');safeLS.setItem(K.auth,JSON.stringify({salt,hash}));}})();
+async function checkPassword(pw){try{const{salt,hash}=JSON.parse(safeLS.getItem(K.auth));return (await sha256hex(salt+'::'+pw))===hash;}catch(e){return false;}}
+async function setPassword(pw){const salt=cyrb53('cmn'+Date.now()+pw,11);const hash=await sha256hex(salt+'::'+pw);safeLS.setItem(K.auth,JSON.stringify({salt,hash}));}
+const isAuthed=()=>safeSS.getItem('cmn_admin_auth')==='1';
 const L2=o=>o?(o[LANG]??o.en):'';
 
 
@@ -173,7 +187,7 @@ const L2=o=>o?(o[LANG]??o.en):'';
 
 /* ================= LANGUAGE ================= */
 function applyLang(){
-  LANG=localStorage.getItem('cmn_lang')||'en';
+  LANG=safeLS.getItem('cmn_lang')||'en';
   document.documentElement.lang=LANG;
   $$('[data-i18n]').forEach(el=>{const v=t(el.dataset.i18n);if(typeof v==='string')el.innerHTML=v;});
   $$('[data-i18n-ph]').forEach(el=>el.placeholder=t(el.dataset.i18nPh));
@@ -184,7 +198,7 @@ function applyLang(){
   applyFeatures(); renderMarquee(); renderServices(); renderGallery(); renderTestimonials(); renderHours(); renderAboutList(); renderBookingServices(); drawCalendar(); drawSlots(); updateSummary();
   if($('#chatPanel').classList.contains('open')&&!chatStarted)startChat();
 }
-function setLang(l){localStorage.setItem('cmn_lang',l);applyLang();toast(t('toast_lang'));}
+function setLang(l){safeLS.setItem('cmn_lang',l);applyLang();toast(t('toast_lang'));}
 ['langEn','langEnM'].forEach(id=>$('#'+id).addEventListener('click',()=>setLang('en')));
 ['langEs','langEsM'].forEach(id=>$('#'+id).addEventListener('click',()=>setLang('es')));
 
@@ -480,12 +494,12 @@ function adClose(){$('#admin').classList.remove('open');document.body.style.over
 function adShowShell(){$('#adLogin').style.display='none';$('#adShell').classList.add('open');adTab('dash');}
 $('#adLoginForm').addEventListener('submit',async e=>{
   e.preventDefault();const pw=$('#adPass').value;
-  if(await checkPassword(pw)){sessionStorage.setItem('cmn_admin_auth','1');$('#adPass').value='';toast(t('toast_login_ok'));adShowShell();}
+  if(await checkPassword(pw)){safeSS.setItem('cmn_admin_auth','1');$('#adPass').value='';toast(t('toast_login_ok'));adShowShell();}
   else toast(t('toast_login_bad'));
 });
 $('#adBackSite').onclick=()=>{location.hash='#hero';adClose();};
 $('#adViewSite').onclick=()=>{adClose();};
-$('#adLogout').onclick=()=>{sessionStorage.removeItem('cmn_admin_auth');adClose();};
+$('#adLogout').onclick=()=>{safeSS.removeItem('cmn_admin_auth');adClose();};
 $('#adBrand').onclick=e=>{e.preventDefault();adClose();};
 $$('#adTabs .ad-tab').forEach(b=>b.onclick=()=>adTab(b.dataset.tab));
 function adTab(name){
