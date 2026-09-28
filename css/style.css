@@ -161,9 +161,9 @@ section[id]{scroll-margin-top:84px}
 .svc::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:0;transition:opacity .4s}
 .svc:hover{transform:translateY(-6px);border-color:var(--line2);box-shadow:var(--shadow)}
 .svc:hover::before{opacity:1}
-.svc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:12px}
-.svc h3{font-family:var(--serif);font-size:27px;font-weight:600;letter-spacing:.02em;flex:1;min-width:0}
-.svc .price{font-family:var(--serif);font-size:25px;color:var(--gold-hi);white-space:nowrap;flex:none}
+.svc-top{display:flex;justify-content:space-between;align-items:baseline;gap:18px;margin-bottom:12px;margin-top:26px}
+.svc h3{font-family:var(--serif);font-size:27px;font-weight:600;letter-spacing:.02em}
+.svc .price{font-family:var(--serif);font-size:25px;color:var(--gold-hi);white-space:nowrap}
 .svc .price small{font-family:var(--sans);font-size:11px;color:var(--dim);letter-spacing:.14em}
 .svc p{color:var(--muted);font-size:14.5px;min-height:48px}
 .svc-meta{display:flex;justify-content:space-between;align-items:center;margin-top:22px;padding-top:20px;border-top:1px dashed var(--line)}
