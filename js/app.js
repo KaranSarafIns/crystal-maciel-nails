@@ -171,11 +171,51 @@ settings:{chatbot:true,booking:true,gallery:true,testimonials:true}
 function loadJSON(k,f){try{const v=safeLS.getItem(k);return v?JSON.parse(v):f;}catch(e){return f;}}
 let STORE=loadJSON(K.store,null);
 if(!STORE){STORE=seedStore();safeLS.setItem(K.store,JSON.stringify(STORE));}
-const saveStore=()=>safeLS.setItem(K.store,JSON.stringify(STORE));
+const saveStore=()=>{
+  if(API.mode==='api'&&API.authed){
+    apiPost('/api/admin/save',{table:'services',rows:STORE.services}).catch(apiSaveFail);
+    apiPost('/api/admin/save',{table:'gallery',rows:STORE.gallery}).catch(apiSaveFail);
+    apiPost('/api/admin/save',{table:'testimonials',rows:STORE.testimonials}).catch(apiSaveFail);
+    apiPost('/api/admin/save',{table:'kv',rows:[{key:'content',value:STORE.content},{key:'settings',value:STORE.settings}]}).catch(apiSaveFail);
+    return;
+  }
+  safeLS.setItem(K.store,JSON.stringify(STORE));
+};
 let BOOKINGS=loadJSON(K.bookings,[]);
-const saveBookings=()=>safeLS.setItem(K.bookings,JSON.stringify(BOOKINGS));
+const saveBookings=()=>{
+  if(API.mode==='api'&&API.authed){apiPost('/api/admin/save',{table:'bookings',rows:BOOKINGS}).catch(apiSaveFail);return;}
+  safeLS.setItem(K.bookings,JSON.stringify(BOOKINGS));
+};
 let ANALYTICS=loadJSON(K.analytics,{visits:0,visitsByDay:{},bookingsTotal:0,bookingsByService:{},chatOpens:0});
 const saveAnalytics=()=>safeLS.setItem(K.analytics,JSON.stringify(ANALYTICS));
+
+/* ================= BACKEND API LAYER =================
+   When /api/* is reachable (Vercel + Supabase configured), the site runs in
+   API mode: content/bookings live in the shared database. Otherwise it falls
+   back to the original browser-local mode. Zero-downtime either way. */
+const API={mode:'local',authed:false};
+function apiFetch(path,opts={},timeoutMs=9000){
+  const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),timeoutMs);
+  return fetch(path,{credentials:'include',headers:{'Content-Type':'application/json'},...opts,signal:ctl.signal})
+    .finally(()=>clearTimeout(to));
+}
+async function apiGet(path,timeoutMs){const r=await apiFetch(path,{},timeoutMs||9000);if(!r.ok)throw new Error('api '+r.status);return r.json();}
+async function apiPost(path,body,timeoutMs){const r=await apiFetch(path,{method:'POST',body:JSON.stringify(body||{})},timeoutMs||9000);const j=await r.json().catch(()=>({}));if(!r.ok){const e=new Error('api '+r.status);e.json=j;throw e;}return j;}
+function applyServerData(d){
+  STORE={content:d.content||{},services:d.services||[],gallery:d.gallery||[],testimonials:d.testimonials||[],settings:d.settings||{}};
+  BOOKINGS=d.bookings||[];
+  if(d.analytics)ANALYTICS=d.analytics;
+}
+function apiSaveFail(){toast(LANG==='es'?'No se pudo guardar — revisa tu conexión':'Could not save — check your connection');}
+async function bootBackend(){
+  try{
+    const d=await apiGet('/api/content',4500);
+    if(!d||!d.content||!Array.isArray(d.services))throw new Error('bad payload');
+    API.mode='api';
+    STORE={content:d.content,services:d.services,gallery:d.gallery,testimonials:d.testimonials,settings:d.settings};
+    apiPost('/api/track',{type:'visit'}).catch(()=>{});
+  }catch(e){/* stay in local mode */}
+}
 /* seed demo auth on first run (async) */
 (async()=>{if(!safeLS.getItem(K.auth)){const salt=cyrb53('cmn'+Date.now(),3);const hash=await sha256hex(salt+'::crystal2026');safeLS.setItem(K.auth,JSON.stringify({salt,hash}));}})();
 async function checkPassword(pw){try{const{salt,hash}=JSON.parse(safeLS.getItem(K.auth));return (await sha256hex(salt+'::'+pw))===hash;}catch(e){return false;}}
@@ -354,18 +394,27 @@ $('#bkNext').onclick=()=>{
   else if(bk.step===3){if(!bk.time)return toast(t('bk_pick_time'));bkStep(4);}
   else confirmBooking();
 };
-function confirmBooking(){
+async function confirmBooking(){
   const name=$('#bkName').value.trim(),phone=$('#bkPhone').value.trim();
   if(name.length<2)return toast(t('bk_need_name'));
   if(phone.replace(/\D/g,'').length<7)return toast(t('bk_need_phone'));
   const s=STORE.services.find(x=>x.id===bk.serviceId);
+  const done=(code)=>{
+    $('#bkCode').textContent=code;
+    $('#bkFormWrap').style.display='none';$('#bkDone').style.display='block';$('#bkFoot').style.display='none';
+    toast(t('toast_booked'));
+  };
+  if(API.mode==='api'){
+    try{
+      const r=await apiPost('/api/book',{serviceId:s.id,serviceName:L2(s.name),price:s.price,date:bk.date,time:bk.time,name,phone,notes:$('#bkNotes').value.trim()});
+      done(r.code);return;
+    }catch(e){return toast(LANG==='es'?'No se pudo enviar la reserva — intenta de nuevo':'Could not send booking — try again');}
+  }
   const code='CM-'+Math.random().toString(36).slice(2,6).toUpperCase();
   BOOKINGS.push({id:uid(),code,serviceId:s.id,serviceName:L2(s.name),price:s.price,date:bk.date,time:bk.time,name,phone,notes:$('#bkNotes').value.trim(),status:'pending',createdAt:new Date().toISOString()});
   saveBookings();
   ANALYTICS.bookingsTotal++;ANALYTICS.bookingsByService[s.id]=(ANALYTICS.bookingsByService[s.id]||0)+1;saveAnalytics();
-  $('#bkCode').textContent=code;
-  $('#bkFormWrap').style.display='none';$('#bkDone').style.display='block';$('#bkFoot').style.display='none';
-  toast(t('toast_booked'));
+  done(code);
 }
 $('#bkAgain').onclick=()=>{bk.serviceId=null;bk.date=null;bk.time=null;$('#bkName').value='';$('#bkPhone').value='';$('#bkNotes').value='';
   $('#bkFormWrap').style.display='block';$('#bkDone').style.display='none';$('#bkFoot').style.display='flex';bkStep(1);renderBookingServices();};
@@ -445,12 +494,15 @@ $('#chatSend').onclick=()=>sendChat();
 $('#chatText').addEventListener('keydown',e=>{if(e.key==='Enter')sendChat();});
 $('#chatFab').onclick=()=>{
   const p=$('#chatPanel');const willOpen=!p.classList.contains('open');p.classList.toggle('open');
-  if(willOpen){ANALYTICS.chatOpens++;saveAnalytics();if(!chatStarted)startChat();setTimeout(()=>$('#chatText').focus(),400);}
+  if(willOpen){if(API.mode==='api'){apiPost('/api/track',{type:'chat'}).catch(()=>{});}else{ANALYTICS.chatOpens++;saveAnalytics();}if(!chatStarted)startChat();setTimeout(()=>$('#chatText').focus(),400);}
 };
 $('#chatClose').onclick=()=>$('#chatPanel').classList.remove('open');
 
 /* ================= SITE INIT ================= */
-function trackVisit(){ANALYTICS.visits++;const d=ymd(new Date());ANALYTICS.visitsByDay[d]=(ANALYTICS.visitsByDay[d]||0)+1;saveAnalytics();}
+function trackVisit(){
+  if(API.mode==='api'){apiPost('/api/track',{type:'visit'}).catch(()=>{});return;}
+  ANALYTICS.visits++;const d=ymd(new Date());ANALYTICS.visitsByDay[d]=(ANALYTICS.visitsByDay[d]||0)+1;saveAnalytics();
+}
 function initSite(){
   // preloader must always fade, even if something below throws
   addEventListener('load',()=>setTimeout(()=>$('#preloader').classList.add('done'),1400));
@@ -489,6 +541,12 @@ function initSite(){
 const AD={tab:'dash',bkFilter:'all',galEdit:null};
 function adOpen(){
   $('#admin').classList.add('open');$('#admin').setAttribute('aria-hidden','false');document.body.style.overflow='hidden';
+  if(API.mode==='api'){
+    /* silent session resume via httpOnly cookie */
+    apiGet('/api/admin/data').then(d=>{API.authed=true;applyServerData(d);adShowShell();})
+      .catch(()=>{API.authed=false;$('#admLogin').style.display='grid';$('#admShell').classList.remove('open');});
+    return;
+  }
   if(isAuthed()){adShowShell();}else{$('#admLogin').style.display='grid';$('#admShell').classList.remove('open');}
 }
 function adClose(){$('#admin').classList.remove('open');document.body.style.overflow='';if(location.hash==='#/admin')history.replaceState(null,'',location.pathname+location.search);}
@@ -503,12 +561,24 @@ $('#admLoginForm').addEventListener('submit',async e=>{
   const rem=lockRemaining();
   if(rem>0){toast((LANG==='es'?'Demasiados intentos. Intenta de nuevo en ':'Too many attempts. Try again in ')+Math.ceil(rem/60000)+(LANG==='es'?' min.':' min.'));return}
   const pw=$('#admPass').value;
-  if(await checkPassword(pw)){safeLS.setItem('cmn_lock','{}');safeSS.setItem('cmn_admin_auth','1');$('#admPass').value='';toast(t('toast_login_ok'));adShowShell();}
+  let ok=false,apiErr=false;
+  if(API.mode==='api'){
+    try{const r=await apiPost('/api/login',{password:pw});ok=r&&r.ok;}
+    catch(e){apiErr=true;ok=await checkPassword(pw);} /* backend unreachable -> local fallback */
+  }else{ok=await checkPassword(pw);}
+  if(ok){
+    safeLS.setItem('cmn_lock','{}');
+    if(API.mode==='api'&&!apiErr){
+      try{const d=await apiGet('/api/admin/data');API.authed=true;applyServerData(d);}
+      catch(e){return toast(LANG==='es'?'Sesión iniciada pero no se pudieron cargar los datos':'Logged in but data failed to load');}
+    }else{safeSS.setItem('cmn_admin_auth','1');}
+    $('#admPass').value='';toast(t('toast_login_ok'));adShowShell();
+  }
   else{recordFail();toast(lockRemaining()>0?(LANG==='es'?'Demasiados intentos — acceso bloqueado 15 minutos.':'Too many attempts — access locked for 15 minutes.'):t('toast_login_bad'));}
 });
 $('#admBackSite').onclick=()=>{location.hash='#hero';adClose();};
 $('#admViewSite').onclick=()=>{adClose();};
-$('#admLogout').onclick=()=>{safeSS.removeItem('cmn_admin_auth');adClose();};
+$('#admLogout').onclick=()=>{safeSS.removeItem('cmn_admin_auth');if(API.mode==='api'){API.authed=false;apiPost('/api/logout',{}).catch(()=>{});}adClose();};
 $('#admBrand').onclick=e=>{e.preventDefault();adClose();};
 $$('#admTabs .adm-tab').forEach(b=>b.onclick=()=>adTab(b.dataset.tab));
 function adTab(name){
@@ -738,10 +808,16 @@ function adSettings(){
   $$('#admp-settings [data-tg]').forEach(sw=>sw.onchange=()=>{STORE.settings[sw.dataset.tg]=sw.checked;saveStore();applyFeatures();toast(t('toast_saved'));});
   $('#pwSave').onclick=async()=>{
     const cur=$('#pwCur').value,nw=$('#pwNew').value,nw2=$('#pwNew2').value;
-    if(!(await checkPassword(cur)))return toast(t('toast_login_bad'));
     if(nw.length<6)return toast(LANG==='es'?'Mínimo 6 caracteres':'Minimum 6 characters');
     if(nw!==nw2)return toast(t('toast_pass_mismatch'));
-    await setPassword(nw);$('#pwCur').value=$('#pwNew').value=$('#pwNew2').value='';toast(t('toast_pass_changed'));
+    if(API.mode==='api'&&API.authed){
+      try{await apiPost('/api/admin/password',{currentPassword:cur,newPassword:nw});}
+      catch(e){return toast(t('toast_login_bad'));}
+    }else{
+      if(!(await checkPassword(cur)))return toast(t('toast_login_bad'));
+      await setPassword(nw);
+    }
+    $('#pwCur').value=$('#pwNew').value=$('#pwNew2').value='';toast(t('toast_pass_changed'));
   };
   $('#dlBackup').onclick=()=>{
     const blob=new Blob([JSON.stringify({store:STORE,bookings:BOOKINGS,analytics:ANALYTICS},null,2)],{type:'application/json'});
@@ -766,4 +842,4 @@ addEventListener('hashchange',route);
 const _applyFeatures=applyFeatures;
 applyFeatures=function(){_applyFeatures();const f=STORE.settings;const ts=$('#testimonials');if(ts)ts.style.display=f.testimonials===false?'none':'';};
 /* boot */
-initSite();route();
+(async()=>{await bootBackend();initSite();route();})();
