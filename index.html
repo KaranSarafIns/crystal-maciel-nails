@@ -25,6 +25,7 @@
   <div class="mono">CM</div>
   <div class="bar"><i></i></div>
   <small data-i18n="pre_tag">Luxury Nails</small>
+  <noscript><p style="max-width:420px;text-align:center;color:#e9dcc3;font-size:15px;line-height:1.7;padding:0 24px">JavaScript is disabled in your browser, so this site can't start. Please enable JavaScript for this site and reload.</p></noscript>
 </div>
 
 <!-- ==================== NAV ==================== -->
@@ -367,6 +368,26 @@
 
 
 
+  <script>
+  /* Boot guard (plain ES5 so it runs anywhere): the preloader must always fade,
+     and if app.js never starts (script blocked by an extension/setting, or too
+     old a browser to parse it), say so instead of leaving a black screen. */
+  (function(){
+    function hidePre(){var p=document.getElementById('preloader');if(p)p.classList.add('done');}
+    if(window.addEventListener)window.addEventListener('load',function(){setTimeout(hidePre,1200);});
+    setTimeout(hidePre,3500);
+    setTimeout(function(){
+      if(window.__cmn_booted)return;
+      hidePre();
+      var p=document.getElementById('preloader');if(!p)return;
+      p.classList.remove('done');p.setAttribute('aria-hidden','false');
+      p.innerHTML='<div style="max-width:540px;padding:32px 28px;text-align:center">'
+        +'<div style="font-family:Georgia,serif;font-size:14px;letter-spacing:.3em;color:#d4af7a;margin-bottom:20px">CRYSTAL MACIEL</div>'
+        +'<p style="font-family:Georgia,serif;color:#e9dcc3;font-size:18px;line-height:1.7;margin:0 0 14px">This page could not start.</p>'
+        +'<p style="color:#9a8f7d;font-size:14.5px;line-height:1.75;margin:0">Something in this browser is blocking the site\u2019s scripts \u2014 usually a script-blocking or privacy extension, or JavaScript turned off for this site. Try disabling extensions for this site, or open it in a browser without extensions. Nothing was lost.</p></div>';
+    },6000);
+  })();
+  </script>
   <script src="js/app.js"></script>
 </body>
 </html>

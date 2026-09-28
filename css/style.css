@@ -365,7 +365,7 @@ footer{border-top:1px solid var(--line);background:#080605;padding:70px 0 0;marg
 /* ---------- Admin ---------- */
 #admin{position:fixed;inset:0;z-index:1600;background:#0b0908;display:none;overflow-y:auto}
 #admin.open{display:block}
-.ad-login{min-height:100svh;display:grid;place-items:center;padding:24px}
+.ad-login{min-height:100svh;display:grid;place-items:center;place-content:center;padding:24px}
 .ad-card{width:min(440px,94vw);background:linear-gradient(170deg,var(--card2),#100c0a);border:1px solid var(--line2);border-radius:24px;padding:52px 48px;text-align:center;box-shadow:var(--shadow)}
 .ad-card .cm{width:70px;height:70px;border:1px solid var(--line2);border-radius:50%;display:grid;place-items:center;margin:0 auto 24px;
   font-family:var(--serif);font-size:26px;color:var(--gold);background:radial-gradient(circle at 30% 25%,rgba(212,175,122,.22),transparent 70%)}

@@ -1,4 +1,5 @@
 /* Crystal Maciel — Luxury Nails app */
+window.__cmn_booted=true; /* boot flag for the inline boot guard (must stay first) */
 
 /* ================= UTILITIES ================= */
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
