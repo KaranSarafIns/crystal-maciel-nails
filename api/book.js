@@ -4,6 +4,10 @@ const B = require('../lib/backend');
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return B.json(res, 405, { ok: false });
   try {
+    const ip = B.clientIp(req);
+    if (await B.rateLimitHit('book', ip, 10, 10 * 60 * 1000))
+      return B.json(res, 429, { ok: false, error: 'rate_limited' });
+    await B.rateLimitAdd('book', ip, 10 * 60 * 1000);
     const b = await B.readBody(req);
     const name = String(b.name || '').trim();
     const phone = String(b.phone || '').trim();

@@ -561,14 +561,18 @@ $('#admLoginForm').addEventListener('submit',async e=>{
   const rem=lockRemaining();
   if(rem>0){toast((LANG==='es'?'Demasiados intentos. Intenta de nuevo en ':'Too many attempts. Try again in ')+Math.ceil(rem/60000)+(LANG==='es'?' min.':' min.'));return}
   const pw=$('#admPass').value;
-  let ok=false,apiErr=false;
+  let ok=false;
   if(API.mode==='api'){
+    /* server is the only authority in API mode: never fall back to the local password check */
     try{const r=await apiPost('/api/login',{password:pw});ok=r&&r.ok;}
-    catch(e){apiErr=true;ok=await checkPassword(pw);} /* backend unreachable -> local fallback */
+    catch(e){
+      if(e&&e.json&&e.json.error==='rate_limited')return toast(LANG==='es'?'Demasiados intentos — espera unos minutos':'Too many attempts — wait a few minutes');
+      return toast(LANG==='es'?'No se pudo contactar el servidor — revisa tu conexión e inténtalo de nuevo':'Could not reach the server — check your connection and try again');
+    }
   }else{ok=await checkPassword(pw);}
   if(ok){
     safeLS.setItem('cmn_lock','{}');
-    if(API.mode==='api'&&!apiErr){
+    if(API.mode==='api'){
       try{const d=await apiGet('/api/admin/data');API.authed=true;applyServerData(d);}
       catch(e){return toast(LANG==='es'?'Sesión iniciada pero no se pudieron cargar los datos':'Logged in but data failed to load');}
     }else{safeSS.setItem('cmn_admin_auth','1');}
