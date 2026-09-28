@@ -566,7 +566,9 @@ $('#admLoginForm').addEventListener('submit',async e=>{
     /* server is the only authority in API mode: never fall back to the local password check */
     try{const r=await apiPost('/api/login',{password:pw});ok=r&&r.ok;}
     catch(e){
-      if(e&&e.json&&e.json.error==='rate_limited')return toast(LANG==='es'?'Demasiados intentos — espera unos minutos':'Too many attempts — wait a few minutes');
+      const st=parseInt(String((e&&e.message)||'').replace(/[^0-9]/g,''),10);
+      if(st===429&&e&&e.json&&e.json.error==='rate_limited')return toast(LANG==='es'?'Demasiados intentos — espera unos minutos':'Too many attempts — wait a few minutes');
+      if(st===401){recordFail();return toast(lockRemaining()>0?(LANG==='es'?'Demasiados intentos — acceso bloqueado 15 minutos.':'Too many attempts — access locked for 15 minutes.'):t('toast_login_bad'));}
       return toast(LANG==='es'?'No se pudo contactar el servidor — revisa tu conexión e inténtalo de nuevo':'Could not reach the server — check your connection and try again');
     }
   }else{ok=await checkPassword(pw);}
