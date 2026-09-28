@@ -886,8 +886,6 @@ function adSettings(){
      <div class="adm-form">${fld('pwCur',LANG==='es'?'Contraseña actual':'Current password','','password')}${fld('pwNew',LANG==='es'?'Nueva contraseña':'New password','','password')}${fld('pwNew2',LANG==='es'?'Confirmar nueva':'Confirm new','','password')}
      <button class="btn sm" id="pwSave">${LANG==='es'?'Actualizar':'Update'}</button></div>
     </div>
-   </div>
-   <div class="panel" style="margin-top:18px"><h3>${LANG==='es'?'Datos':'Data'}</h3>
    </div>`;
   $$('#admp-settings [data-tg]').forEach(sw=>sw.onchange=()=>{STORE.settings[sw.dataset.tg]=sw.checked;saveStore();applyFeatures();toast(t('toast_saved'));});
   $('#pwSave').onclick=async()=>{
