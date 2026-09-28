@@ -232,7 +232,7 @@ function renderServices(){
       <span class="dur"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>${s.dur} ${t('min')}</span>
       ${STORE.settings.booking!==false?`<button class="svc-book" data-book="${s.id}">${t('book')} →</button>`:''}
     </div>
-   </article>`).join('')||`<p class="ad-empty">${t('all')}</p>`;
+   </article>`).join('')||`<p class="adm-empty">${t('all')}</p>`;
   $$('#svcGrid [data-book]').forEach(b=>b.onclick=()=>{bk.serviceId=b.dataset.book;bkStep(1);renderBookingServices();document.getElementById('booking').scrollIntoView({behavior:'smooth'});});
 }
 const IMGS={hero:"assets/hero.jpg",about:"assets/about.jpg",g1:"assets/g-ombre.jpg",g2:"assets/g-marble.jpg",g3:"assets/g-rosechome.jpg",g4:"assets/g-emerald.jpg",g5:"assets/g-red.jpg",g6:"assets/g-milky.jpg"};
@@ -329,10 +329,10 @@ function drawCalendar(){
 $('#calPrev').onclick=()=>{bk.calCursor.setMonth(bk.calCursor.getMonth()-1);drawCalendar();};
 $('#calNext').onclick=()=>{bk.calCursor.setMonth(bk.calCursor.getMonth()+1);drawCalendar();};
 function drawSlots(){
-  if(!bk.date){$('#slotGrid').innerHTML=`<p class="ad-empty">${t('bk_pick_date')}</p>`;return;}
+  if(!bk.date){$('#slotGrid').innerHTML=`<p class="adm-empty">${t('bk_pick_date')}</p>`;return;}
   const slots=slotsFor(bk.date);
   $('#slotGrid').innerHTML=slots.length?slots.map(s=>`<button class="slot${bk.time===s.label?' sel':''}" ${s.taken?'disabled':''}>${s.label}</button>`).join('')
-    :`<p class="ad-empty">${t('bk_no_slots')}</p>`;
+    :`<p class="adm-empty">${t('bk_no_slots')}</p>`;
   $$('#slotGrid .slot:not(:disabled)').forEach(b=>b.onclick=()=>{bk.time=b.textContent;drawSlots();});
 }
 function fmtDateLong(s){
@@ -377,7 +377,7 @@ $('#bkAgain').onclick=()=>{bk.serviceId=null;bk.date=null;bk.time=null;$('#bkNam
 let toastT=null;
 function toast(msg){const el=$('#toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),2800);}
 function openModal(title,bodyHTML,saveLabel,onSave){
-  $('#modalCard').innerHTML=`<h3>${title}</h3><div class="ad-form">${bodyHTML}</div>
+  $('#modalCard').innerHTML=`<h3>${title}</h3><div class="adm-form">${bodyHTML}</div>
    <div class="modal-foot"><button class="btn ghost sm" id="mCancel">${LANG==='es'?'Cancelar':'Cancel'}</button>
    <button class="btn sm" id="mSave">${esc(saveLabel||t('toast_saved'))}</button></div>`;
   $('#modal').classList.add('open');
@@ -489,24 +489,24 @@ function initSite(){
 const AD={tab:'dash',bkFilter:'all',galEdit:null};
 function adOpen(){
   $('#admin').classList.add('open');$('#admin').setAttribute('aria-hidden','false');document.body.style.overflow='hidden';
-  if(isAuthed()){adShowShell();}else{$('#adLogin').style.display='grid';$('#adShell').classList.remove('open');}
+  if(isAuthed()){adShowShell();}else{$('#admLogin').style.display='grid';$('#admShell').classList.remove('open');}
 }
 function adClose(){$('#admin').classList.remove('open');document.body.style.overflow='';if(location.hash==='#/admin')history.replaceState(null,'',location.pathname+location.search);}
-function adShowShell(){$('#adLogin').style.display='none';$('#adShell').classList.add('open');adTab('dash');}
-$('#adLoginForm').addEventListener('submit',async e=>{
-  e.preventDefault();const pw=$('#adPass').value;
-  if(await checkPassword(pw)){safeSS.setItem('cmn_admin_auth','1');$('#adPass').value='';toast(t('toast_login_ok'));adShowShell();}
+function adShowShell(){$('#admLogin').style.display='none';$('#admShell').classList.add('open');adTab('dash');}
+$('#admLoginForm').addEventListener('submit',async e=>{
+  e.preventDefault();const pw=$('#admPass').value;
+  if(await checkPassword(pw)){safeSS.setItem('cmn_admin_auth','1');$('#admPass').value='';toast(t('toast_login_ok'));adShowShell();}
   else toast(t('toast_login_bad'));
 });
-$('#adBackSite').onclick=()=>{location.hash='#hero';adClose();};
-$('#adViewSite').onclick=()=>{adClose();};
-$('#adLogout').onclick=()=>{safeSS.removeItem('cmn_admin_auth');adClose();};
-$('#adBrand').onclick=e=>{e.preventDefault();adClose();};
-$$('#adTabs .ad-tab').forEach(b=>b.onclick=()=>adTab(b.dataset.tab));
+$('#admBackSite').onclick=()=>{location.hash='#hero';adClose();};
+$('#admViewSite').onclick=()=>{adClose();};
+$('#admLogout').onclick=()=>{safeSS.removeItem('cmn_admin_auth');adClose();};
+$('#admBrand').onclick=e=>{e.preventDefault();adClose();};
+$$('#admTabs .adm-tab').forEach(b=>b.onclick=()=>adTab(b.dataset.tab));
 function adTab(name){
   AD.tab=name;
-  $$('#adTabs .ad-tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===name));
-  $$('.ad-pane').forEach(p=>p.classList.remove('on'));$('#adp-'+name).classList.add('on');
+  $$('#admTabs .adm-tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===name));
+  $$('.adm-pane').forEach(p=>p.classList.remove('on'));$('#admp-'+name).classList.add('on');
   ({dash:adDash,bookings:adBookings,services:adServices,gallery:adGallery,testimonials:adTestimonials,content:adContent,settings:adSettings})[name]();
 }
 function statCard(label,val){return `<div class="stat"><small>${label}</small><b>${val}</b></div>`;}
@@ -517,27 +517,27 @@ function adDash(){
   const top=Object.entries(ANALYTICS.bookingsByService).sort((a,b)=>b[1]-a[1]).slice(0,5)
     .map(([id,n])=>{const s=STORE.services.find(x=>x.id===id);return {name:s?L2(s.name):id,n};});
   const recent=[...BOOKINGS].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,5);
-  $('#adp-dash').innerHTML=`
+  $('#admp-dash').innerHTML=`
    <div class="stat-grid">
     ${statCard(LANG==='es'?'Visitas':'Visits',ANALYTICS.visits)}
     ${statCard(LANG==='es'?'Citas totales':'Total bookings',ANALYTICS.bookingsTotal)}
     ${statCard(LANG==='es'?'Pendientes':'Pending',pend)}
     ${statCard(LANG==='es'?'Chats abiertos':'Chat opens',ANALYTICS.chatOpens)}
    </div>
-   <div class="ad-row2">
+   <div class="adm-row2">
     <div class="panel"><h3>${LANG==='es'?'Visitas · últimos 14 días':'Visits · last 14 days'}</h3>
       <div class="bars">${days.map(d=>{const v=ANALYTICS.visitsByDay[d]||0;return `<div class="bar-row"><span>${d.slice(5)}</span><div class="bar-track"><div class="bar-fill" style="width:${Math.round(v/max*100)}%"></div></div><span>${v}</span></div>`;}).join('')}</div></div>
     <div class="panel"><h3>${LANG==='es'?'Servicios más reservados':'Most-booked services'}</h3>
-      ${top.length?`<div class="bars">${top.map(x=>`<div class="bar-row"><span style="grid-column:1/3">${esc(x.name)}</span><span>${x.n}</span></div>`).join('')}</div>`:`<p class="ad-empty">${LANG==='es'?'Aún no hay reservas':'No bookings yet'}</p>`}
+      ${top.length?`<div class="bars">${top.map(x=>`<div class="bar-row"><span style="grid-column:1/3">${esc(x.name)}</span><span>${x.n}</span></div>`).join('')}</div>`:`<p class="adm-empty">${LANG==='es'?'Aún no hay reservas':'No bookings yet'}</p>`}
       <h3 style="margin-top:28px">${LANG==='es'?'Reservas recientes':'Recent bookings'}</h3>
-      ${recent.length?recent.map(b=>`<div class="toggle-row"><div><b>${esc(b.name)} · ${esc(b.serviceName)}</b><small>${b.date} · ${b.time} · <span class="pill ${b.status}">${b.status}</span></small></div></div>`).join(''):`<p class="ad-empty">—</p>`}
+      ${recent.length?recent.map(b=>`<div class="toggle-row"><div><b>${esc(b.name)} · ${esc(b.serviceName)}</b><small>${b.date} · ${b.time} · <span class="pill ${b.status}">${b.status}</span></small></div></div>`).join(''):`<p class="adm-empty">—</p>`}
     </div>
    </div>`;
 }
 function adBookings(){
   const f=AD.bkFilter;
   const list=[...BOOKINGS].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).filter(b=>f==='all'||b.status===f);
-  $('#adp-bookings').innerHTML=`
+  $('#admp-bookings').innerHTML=`
    <div class="panel">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:12px">
       <h3 style="margin:0">${LANG==='es'?'Reservas':'Bookings'} (${BOOKINGS.length})</h3>
@@ -548,7 +548,7 @@ function adBookings(){
         <button class="icon-btn" id="bkCsv">${LANG==='es'?'Exportar CSV':'Export CSV'}</button>
       </div>
     </div>
-    ${list.length?`<div style="overflow-x:auto"><table class="ad-table"><thead><tr><th>${LANG==='es'?'Código':'Code'}</th><th>${LANG==='es'?'Clienta':'Client'}</th><th>${LANG==='es'?'Servicio':'Service'}</th><th>${LANG==='es'?'Fecha':'Date'}</th><th>${LANG==='es'?'Hora':'Time'}</th><th>${LANG==='es'?'Teléfono':'Phone'}</th><th>${LANG==='es'?'Estado':'Status'}</th><th></th></tr></thead><tbody>
+    ${list.length?`<div style="overflow-x:auto"><table class="adm-table"><thead><tr><th>${LANG==='es'?'Código':'Code'}</th><th>${LANG==='es'?'Clienta':'Client'}</th><th>${LANG==='es'?'Servicio':'Service'}</th><th>${LANG==='es'?'Fecha':'Date'}</th><th>${LANG==='es'?'Hora':'Time'}</th><th>${LANG==='es'?'Teléfono':'Phone'}</th><th>${LANG==='es'?'Estado':'Status'}</th><th></th></tr></thead><tbody>
       ${list.map(b=>`<tr><td style="letter-spacing:.1em">${esc(b.code)}</td><td>${esc(b.name)}${b.notes?`<br><small style="color:var(--dim)">${esc(b.notes)}</small>`:''}</td><td>${esc(b.serviceName)}</td><td>${esc(b.date)}</td><td>${esc(b.time)}</td><td>${esc(b.phone)}</td>
       <td><span class="pill ${b.status}">${b.status}</span></td>
       <td><div class="row-actions">
@@ -556,11 +556,11 @@ function adBookings(){
         ${b.status!=='cancelled'?`<button class="icon-btn" data-act="cancel" data-id="${b.id}">✕</button>`:''}
         <button class="icon-btn danger" data-act="del" data-id="${b.id}">🗑</button>
       </div></td></tr>`).join('')}</tbody></table></div>`
-    :`<p class="ad-empty">${LANG==='es'?'Sin reservas':'No bookings'}</p>`}
+    :`<p class="adm-empty">${LANG==='es'?'Sin reservas':'No bookings'}</p>`}
    </div>`;
   $('#bkFilterSel').onchange=e=>{AD.bkFilter=e.target.value;adBookings();};
   $('#bkCsv').onclick=exportCSV;
-  $$('#adp-bookings [data-act]').forEach(btn=>btn.onclick=()=>{
+  $$('#admp-bookings [data-act]').forEach(btn=>btn.onclick=()=>{
     const b=BOOKINGS.find(x=>x.id===btn.dataset.id);if(!b)return;
     const act=btn.dataset.act;
     if(act==='del'){if(!confirm(LANG==='es'?'¿Eliminar esta reserva?':'Delete this booking?'))return;BOOKINGS=BOOKINGS.filter(x=>x.id!==b.id);toast(t('toast_deleted'));}
@@ -574,16 +574,16 @@ function exportCSV(){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bookings.csv';a.click();
 }
 function adServices(){
-  $('#adp-services').innerHTML=`<div class="panel">
+  $('#admp-services').innerHTML=`<div class="panel">
    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px"><h3 style="margin:0">Services (${STORE.services.length})</h3>
    <button class="btn sm" id="svcAdd">+ ${LANG==='es'?'Añadir':'Add'}</button></div>
-   <div style="overflow-x:auto"><table class="ad-table"><thead><tr><th>EN / ES</th><th>Cat.</th><th>$</th><th>Min</th><th></th></tr></thead><tbody>
+   <div style="overflow-x:auto"><table class="adm-table"><thead><tr><th>EN / ES</th><th>Cat.</th><th>$</th><th>Min</th><th></th></tr></thead><tbody>
    ${STORE.services.map(s=>`<tr><td><b style="color:var(--text)">${esc(s.name.en)}</b><br><small>${esc(s.name.es)}</small></td><td>${esc(s.cat)}</td><td>$${s.price}</td><td>${s.dur}</td>
     <td><div class="row-actions"><button class="icon-btn" data-edit="${s.id}">${LANG==='es'?'Editar':'Edit'}</button><button class="icon-btn danger" data-del="${s.id}">🗑</button></div></td></tr>`).join('')}
    </tbody></table></div></div>`;
   $('#svcAdd').onclick=()=>svcModal(null);
-  $$('#adp-services [data-edit]').forEach(b=>b.onclick=()=>svcModal(STORE.services.find(x=>x.id===b.dataset.edit)));
-  $$('#adp-services [data-del]').forEach(b=>b.onclick=()=>{if(!confirm('Delete?'))return;STORE.services=STORE.services.filter(x=>x.id!==b.dataset.del);saveStore();applyLang();adServices();toast(t('toast_deleted'));});
+  $$('#admp-services [data-edit]').forEach(b=>b.onclick=()=>svcModal(STORE.services.find(x=>x.id===b.dataset.edit)));
+  $$('#admp-services [data-del]').forEach(b=>b.onclick=()=>{if(!confirm('Delete?'))return;STORE.services=STORE.services.filter(x=>x.id!==b.dataset.del);saveStore();applyLang();adServices();toast(t('toast_deleted'));});
 }
 function svcModal(s){
   const isNew=!s;s=s||{name:{en:'',es:''},desc:{en:'',es:''},cat:'Manicure',price:50,priceNote:'',dur:60};
@@ -608,7 +608,7 @@ function svcModal(s){
 }
 function adGallery(){
   const bundled=['g1','g2','g3','g4','g5','g6'];
-  $('#adp-gallery').innerHTML=`<div class="panel">
+  $('#admp-gallery').innerHTML=`<div class="panel">
    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px"><h3 style="margin:0">Gallery (${STORE.gallery.length})</h3>
    <button class="btn sm" id="galAdd">+ ${LANG==='es'?'Añadir':'Add'}</button></div>
    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px">
@@ -618,8 +618,8 @@ function adGallery(){
      <div class="row-actions" style="margin-top:10px"><button class="icon-btn" data-edit="${g.id}">${LANG==='es'?'Editar':'Edit'}</button><button class="icon-btn danger" data-del="${g.id}">🗑</button></div></div></div>`).join('')}
    </div></div>`;
   $('#galAdd').onclick=()=>galModal(null);
-  $$('#adp-gallery [data-edit]').forEach(b=>b.onclick=()=>galModal(STORE.gallery.find(x=>x.id===b.dataset.edit)));
-  $$('#adp-gallery [data-del]').forEach(b=>b.onclick=()=>{if(!confirm('Delete?'))return;STORE.gallery=STORE.gallery.filter(x=>x.id!==b.dataset.del);saveStore();applyLang();adGallery();toast(t('toast_deleted'));});
+  $$('#admp-gallery [data-edit]').forEach(b=>b.onclick=()=>galModal(STORE.gallery.find(x=>x.id===b.dataset.edit)));
+  $$('#admp-gallery [data-del]').forEach(b=>b.onclick=()=>{if(!confirm('Delete?'))return;STORE.gallery=STORE.gallery.filter(x=>x.id!==b.dataset.del);saveStore();applyLang();adGallery();toast(t('toast_deleted'));});
   function galModal(g){
     const isNew=!g;g=g||{img:'g1',tag:{en:'',es:''},title:{en:'',es:''}};
     openModal(isNew?'Add piece':'Edit piece',`
@@ -647,15 +647,15 @@ function adGallery(){
   }
 }
 function adTestimonials(){
-  $('#adp-testimonials').innerHTML=`<div class="panel">
+  $('#admp-testimonials').innerHTML=`<div class="panel">
    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px"><h3 style="margin:0">${LANG==='es'?'Reseñas':'Reviews'} (${STORE.testimonials.length})</h3>
    <button class="btn sm" id="tstAdd">+ ${LANG==='es'?'Añadir':'Add'}</button></div>
    ${STORE.testimonials.map(x=>`<div class="toggle-row"><div><b>${esc(x.name)} <span style="color:var(--gold)">${'★'.repeat(x.stars||5)}</span></b><small>${esc(x.text.en.slice(0,90))}…</small></div>
     <div class="row-actions"><button class="icon-btn" data-edit="${x.id}">${LANG==='es'?'Editar':'Edit'}</button><button class="icon-btn danger" data-del="${x.id}">🗑</button></div></div>`).join('')}
   </div>`;
   $('#tstAdd').onclick=()=>tstModal(null);
-  $$('#adp-testimonials [data-edit]').forEach(b=>b.onclick=()=>tstModal(STORE.testimonials.find(x=>x.id===b.dataset.edit)));
-  $$('#adp-testimonials [data-del]').forEach(b=>b.onclick=()=>{if(!confirm('Delete?'))return;STORE.testimonials=STORE.testimonials.filter(x=>x.id!==b.dataset.del);saveStore();applyLang();adTestimonials();toast(t('toast_deleted'));});
+  $$('#admp-testimonials [data-edit]').forEach(b=>b.onclick=()=>tstModal(STORE.testimonials.find(x=>x.id===b.dataset.edit)));
+  $$('#admp-testimonials [data-del]').forEach(b=>b.onclick=()=>{if(!confirm('Delete?'))return;STORE.testimonials=STORE.testimonials.filter(x=>x.id!==b.dataset.del);saveStore();applyLang();adTestimonials();toast(t('toast_deleted'));});
   function tstModal(x){
     const isNew=!x;x=x||{name:'',stars:5,text:{en:'',es:''}};
     openModal(isNew?'Add review':'Edit review',`
@@ -671,18 +671,18 @@ function adTestimonials(){
 }
 function adContent(){
   const c=STORE.content;
-  $('#adp-content').innerHTML=`<div class="panel"><h3>Hero</h3><div class="ad-form">
+  $('#admp-content').innerHTML=`<div class="panel"><h3>Hero</h3><div class="adm-form">
    ${biField('ck','Kicker',c,'heroKicker')}${biField('c1','Title line 1',c,'heroT1')}${biField('c2','Title accent 1',c,'heroT2')}
    ${biField('c3','Title line 2',c,'heroT3')}${biField('c4','Title accent 2',c,'heroT4')}${biTA('cs','Subtitle',c,'heroSub')}
    ${biField('cb1','CTA primary',c,'heroCta1')}${biField('cb2','CTA secondary',c,'heroCta2')}
   </div></div>
-  <div class="panel" style="margin-top:18px"><h3>About</h3><div class="ad-form">
+  <div class="panel" style="margin-top:18px"><h3>About</h3><div class="adm-form">
    ${biField('ak','Kicker',c,'aboutKicker')}${biField('at1','Title',c,'aboutT1')}${biField('at2','Title accent',c,'aboutT2')}
    ${biTA('ap1','Paragraph 1',c,'aboutP1')}${biTA('ap2','Paragraph 2',c,'aboutP2')}${biField('ar','Role line',c,'aboutRole')}
    <div class="field"><label>Checklist bullets (EN | ES per line)</label>
     <textarea id="cbullets" rows="5">${c.aboutBullets.map(b=>esc(b.en+' | '+b.es)).join('\n')}</textarea></div>
   </div></div>
-  <div class="panel" style="margin-top:18px"><h3>${LANG==='es'?'Contacto y horario':'Contact & hours'}</h3><div class="ad-form">
+  <div class="panel" style="margin-top:18px"><h3>${LANG==='es'?'Contacto y horario':'Contact & hours'}</h3><div class="adm-form">
    ${fld('caddr','Address',c.address)}${fld('cphone','Phone display',c.phone)}${fld('cphonehref','Phone link (tel:)',c.phoneHref)}${fld('cmap','Google Maps URL',c.mapUrl)}
    <div class="field"><label>Hours — one per line: Day EN | Day ES | Time  (use "Closed" for closed days)</label>
     <textarea id="chours" rows="4">${c.hours.map(h=>esc(h.d_en+' | '+h.d_es+' | '+h.t)).join('\n')}</textarea></div>
@@ -710,8 +710,8 @@ function initContactBits(){
 function adSettings(){
   const s=STORE.settings;
   const tg=(k,label,sub)=>`<div class="toggle-row"><div><b>${label}</b><small>${sub}</small></div><label class="switch"><input type="checkbox" data-tg="${k}"${s[k]!==false?' checked':''}><span class="tr"></span></label></div>`;
-  $('#adp-settings').innerHTML=`
-   <div class="ad-row2">
+  $('#admp-settings').innerHTML=`
+   <div class="adm-row2">
     <div class="panel"><h3>${LANG==='es'?'Funciones del sitio':'Site features'}</h3>
      ${tg('chatbot',LANG==='es'?'Asistente de chat':'Chat assistant',LANG==='es'?'Widget flotante de preguntas frecuentes':'Floating FAQ widget')}
      ${tg('booking',LANG==='es'?'Reservas en línea':'Online booking',LANG==='es'?'Calendario y wizard de citas':'Calendar & booking wizard')}
@@ -719,7 +719,7 @@ function adSettings(){
      ${tg('testimonials',LANG==='es'?'Reseñas':'Reviews',LANG==='es'?'Carrusel de testimonios':'Testimonials carousel')}
     </div>
     <div class="panel"><h3>${LANG==='es'?'Cambiar contraseña':'Change password'}</h3>
-     <div class="ad-form">${fld('pwCur',LANG==='es'?'Contraseña actual':'Current password','','password')}${fld('pwNew',LANG==='es'?'Nueva contraseña':'New password','','password')}${fld('pwNew2',LANG==='es'?'Confirmar nueva':'Confirm new','','password')}
+     <div class="adm-form">${fld('pwCur',LANG==='es'?'Contraseña actual':'Current password','','password')}${fld('pwNew',LANG==='es'?'Nueva contraseña':'New password','','password')}${fld('pwNew2',LANG==='es'?'Confirmar nueva':'Confirm new','','password')}
      <button class="btn sm" id="pwSave">${LANG==='es'?'Actualizar':'Update'}</button></div>
     </div>
    </div>
@@ -727,7 +727,7 @@ function adSettings(){
     <div class="toggle-row"><div><b>${LANG==='es'?'Exportar respaldo':'Export backup'}</b><small>JSON</small></div><button class="icon-btn" id="dlBackup">↓ JSON</button></div>
     <div class="toggle-row"><div><b style="color:var(--rose)">${LANG==='es'?'Restablecer demo':'Reset demo data'}</b><small>${LANG==='es'?'Restaura servicios, galería y contenido original':'Restore original services, gallery & content'}</small></div><button class="icon-btn danger" id="resetAll">${LANG==='es'?'Restablecer':'Reset'}</button></div>
    </div>`;
-  $$('#adp-settings [data-tg]').forEach(sw=>sw.onchange=()=>{STORE.settings[sw.dataset.tg]=sw.checked;saveStore();applyFeatures();toast(t('toast_saved'));});
+  $$('#admp-settings [data-tg]').forEach(sw=>sw.onchange=()=>{STORE.settings[sw.dataset.tg]=sw.checked;saveStore();applyFeatures();toast(t('toast_saved'));});
   $('#pwSave').onclick=async()=>{
     const cur=$('#pwCur').value,nw=$('#pwNew').value,nw2=$('#pwNew2').value;
     if(!(await checkPassword(cur)))return toast(t('toast_login_bad'));
@@ -748,7 +748,7 @@ function route(){
     if(location.hash==='#/admin')adOpen();else if($('#admin').classList.contains('open'))adClose();
   }catch(e){
     // fail-safe: never leave a blank overlay — always show the login card
-    const a=$('#admin'),l=$('#adLogin');
+    const a=$('#admin'),l=$('#admLogin');
     if(a)a.classList.add('open');
     if(l)l.style.display='grid';
   }
