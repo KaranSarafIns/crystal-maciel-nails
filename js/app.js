@@ -197,7 +197,7 @@ function applyLang(){
   const c=STORE.content;
   $('#hero h1').innerHTML=`${esc(L2(c.heroT1))} <em>${esc(L2(c.heroT2))}</em><br>${esc(L2(c.heroT3))} <em>${esc(L2(c.heroT4))}</em>`;
   applyFeatures(); renderMarquee(); renderServices(); renderGallery(); renderTestimonials(); renderHours(); renderAboutList(); renderBookingServices(); drawCalendar(); drawSlots(); updateSummary();
-  if($('#chatPanel').classList.contains('open')&&!chatStarted)startChat();
+  if($('#chatPanel').classList.contains('open')){chatStarted=false;startChat();}
 }
 function setLang(l){safeLS.setItem('cmn_lang',l);applyLang();toast(t('toast_lang'));}
 ['langEn','langEnM'].forEach(id=>$('#'+id).addEventListener('click',()=>setLang('en')));
@@ -222,7 +222,7 @@ function renderServices(){
   const cats=['all',...new Set(STORE.services.map(s=>s.cat))];
   $('#svcFilters').innerHTML=cats.map(c=>`<button class="chip${svcFilter===c?' on':''}" data-cat="${esc(c)}">${c==='all'?t('all'):esc(c)}</button>`).join('');
   $$('#svcFilters .chip').forEach(b=>b.onclick=()=>{svcFilter=b.dataset.cat;renderServices();});
-  const list=STORE.services.filter(s=>svcFilter==='all'||s.cat===svcFilter);
+  const list=STORE.services.filter(s=>!s.off&&(svcFilter==='all'||s.cat===svcFilter));
   $('#svcGrid').innerHTML=list.map((s,i)=>`
    <article class="svc rv in" style="transition-delay:${(i%2)*0.1}s">
     <span class="svc-cat">${esc(s.cat)}</span>
@@ -238,7 +238,7 @@ function renderServices(){
 const IMGS={hero:"assets/hero.jpg",about:"assets/about.jpg",g1:"assets/g-ombre.jpg",g2:"assets/g-marble.jpg",g3:"assets/g-rosechome.jpg",g4:"assets/g-emerald.jpg",g5:"assets/g-red.jpg",g6:"assets/g-milky.jpg"};
 function gimg(g){return g.imgUrl||IMGS[g.img]||IMGS.g1;}
 function renderGallery(){
-  $('#galGrid').innerHTML=STORE.gallery.map((g,i)=>`
+  $('#galGrid').innerHTML=STORE.gallery.filter(g=>!g.off).map((g,i)=>`
    <figure class="gal rv in" data-gal="${g.id}" style="transition-delay:${(i%3)*0.1}s">
      <img src="${gimg(g)}" alt="${esc(L2(g.title))}" loading="lazy">
      <span class="gal-frame"></span>
@@ -261,7 +261,7 @@ function renderAboutList(){
 /* testimonials carousel */
 let tstIdx=0,tstTimer=null;
 function renderTestimonials(){
-  const arr=STORE.testimonials;
+  const arr=STORE.testimonials.filter(x=>!x.off);
   $('#tstStrip').innerHTML=arr.map(x=>`<div class="tst"><span class="qmark">“</span><blockquote>${esc(L2(x.text))}</blockquote><div class="stars">${'★'.repeat(x.stars||5)}</div><div class="who">${esc(x.name)}</div></div>`).join('');
   $('#tstDots').innerHTML=arr.map((_,i)=>`<button data-i="${i}" aria-label="Review ${i+1}"></button>`).join('');
   tstIdx=0;tstGo(0);
@@ -292,7 +292,7 @@ function slotsFor(dateStr){
   return out;
 }
 function renderBookingServices(){
-  $('#bkSvcList').innerHTML=STORE.services.map(s=>`
+  $('#bkSvcList').innerHTML=STORE.services.filter(s=>!s.off).map(s=>`
    <div class="bk-svc${bk.serviceId===s.id?' sel':''}" data-svc="${s.id}">
      <div><h4>${esc(L2(s.name))}</h4><small>${s.dur} ${t('min')} · ${esc(s.cat)}</small></div>
      <div class="p">$${s.price}</div>
@@ -395,7 +395,7 @@ const biTA=(base,label,obj,key)=>`<div class="field"><label>${label} — EN</lab
 let chatStarted=false;
 const R=(en,es)=>LANG==='es'?es:en;
 function botHours(){return STORE.content.hours.map(r=>`• ${LANG==='es'?r.d_es:r.d_en}: ${/closed|cerrado/i.test(r.t)?t('closed'):r.t}`).join('\n');}
-function botServices(){return STORE.services.map(s=>`• ${L2(s.name)} — $${s.price}${s.priceNote?' ('+t('from')+')':''}`).join('\n');}
+function botServices(){return STORE.services.filter(s=>!s.off).map(s=>`• ${L2(s.name)} — $${s.price}${s.priceNote?' ('+t('from')+')':''}`).join('\n');}
 const INTENTS=[
  {k:['hello','hi','hey','good morning','good evening','hola','buenas','buenos dias','buenas tardes','hey '],a:()=>R("Hello! Great to see you. I can share services & prices, hours, location, or help you book.","¡Hola! Qué bueno verte. Puedo contarte de servicios y precios, horario, ubicación o ayudarte a reservar.")},
  {k:['hour','open','close','schedule','when are you','horario','abierto','abre','cierra','cierran','a que hora'],a:()=>R("We're open:\n"+botHours()+"\nMondays we're closed.", "Nuestro horario:\n"+botHours()+"\nLos lunes cerramos.")},
@@ -493,10 +493,18 @@ function adOpen(){
 }
 function adClose(){$('#admin').classList.remove('open');document.body.style.overflow='';if(location.hash==='#/admin')history.replaceState(null,'',location.pathname+location.search);}
 function adShowShell(){$('#admLogin').style.display='none';$('#admShell').classList.add('open');adTab('dash');}
+/* ---- brute-force lockout: 3 bad tries -> 15 min block ---- */
+const LOCK_MAX=3,LOCK_MS=15*60*1000;
+function lockInfo(){try{return JSON.parse(safeLS.getItem('cmn_lock')||'{}')}catch(e){return{}}}
+function lockRemaining(){const l=lockInfo();return l.until&&l.until>Date.now()?l.until-Date.now():0}
+function recordFail(){const l=lockInfo();l.fails=(l.fails||0)+1;if(l.fails>=LOCK_MAX){l.until=Date.now()+LOCK_MS;l.fails=0}safeLS.setItem('cmn_lock',JSON.stringify(l));return l}
 $('#admLoginForm').addEventListener('submit',async e=>{
-  e.preventDefault();const pw=$('#admPass').value;
-  if(await checkPassword(pw)){safeSS.setItem('cmn_admin_auth','1');$('#admPass').value='';toast(t('toast_login_ok'));adShowShell();}
-  else toast(t('toast_login_bad'));
+  e.preventDefault();
+  const rem=lockRemaining();
+  if(rem>0){toast((LANG==='es'?'Demasiados intentos. Intenta de nuevo en ':'Too many attempts. Try again in ')+Math.ceil(rem/60000)+(LANG==='es'?' min.':' min.'));return}
+  const pw=$('#admPass').value;
+  if(await checkPassword(pw)){safeLS.setItem('cmn_lock','{}');safeSS.setItem('cmn_admin_auth','1');$('#admPass').value='';toast(t('toast_login_ok'));adShowShell();}
+  else{recordFail();toast(lockRemaining()>0?(LANG==='es'?'Demasiados intentos — acceso bloqueado 15 minutos.':'Too many attempts — access locked for 15 minutes.'):t('toast_login_bad'));}
 });
 $('#admBackSite').onclick=()=>{location.hash='#hero';adClose();};
 $('#admViewSite').onclick=()=>{adClose();};
@@ -579,11 +587,11 @@ function adServices(){
    <button class="btn sm" id="svcAdd">+ ${LANG==='es'?'Añadir':'Add'}</button></div>
    <div style="overflow-x:auto"><table class="adm-table"><thead><tr><th>EN / ES</th><th>Cat.</th><th>$</th><th>Min</th><th></th></tr></thead><tbody>
    ${STORE.services.map(s=>`<tr><td><b style="color:var(--text)">${esc(s.name.en)}</b><br><small>${esc(s.name.es)}</small></td><td>${esc(s.cat)}</td><td>$${s.price}</td><td>${s.dur}</td>
-    <td><div class="row-actions"><button class="icon-btn" data-edit="${s.id}">${LANG==='es'?'Editar':'Edit'}</button><button class="icon-btn danger" data-del="${s.id}">🗑</button></div></td></tr>`).join('')}
+    <td><div class="row-actions"><button class="icon-btn" data-edit="${s.id}">${LANG==='es'?'Editar':'Edit'}</button><label class="switch" title="${s.off?(LANG==='es'?'Mostrar':'Show'):(LANG==='es'?'Ocultar':'Hide')}"><input type="checkbox" data-toggle="${s.id}"${s.off?'':' checked'}><span class="tr"></span></label></div></td></tr>`).join('')}
    </tbody></table></div></div>`;
   $('#svcAdd').onclick=()=>svcModal(null);
   $$('#admp-services [data-edit]').forEach(b=>b.onclick=()=>svcModal(STORE.services.find(x=>x.id===b.dataset.edit)));
-  $$('#admp-services [data-del]').forEach(b=>b.onclick=()=>{if(!confirm('Delete?'))return;STORE.services=STORE.services.filter(x=>x.id!==b.dataset.del);saveStore();applyLang();adServices();toast(t('toast_deleted'));});
+  $$('#admp-services [data-toggle]').forEach(c=>c.onchange=()=>{const s=STORE.services.find(x=>x.id===c.dataset.toggle);s.off=!c.checked;saveStore();applyLang();adServices();toast(t('toast_saved'));});
 }
 function svcModal(s){
   const isNew=!s;s=s||{name:{en:'',es:''},desc:{en:'',es:''},cat:'Manicure',price:50,priceNote:'',dur:60};
@@ -615,11 +623,11 @@ function adGallery(){
    ${STORE.gallery.map(g=>`<div style="border:1px solid var(--line);border-radius:14px;overflow:hidden">
      <img src="${gimg(g)}" style="aspect-ratio:1;object-fit:cover;width:100%">
      <div style="padding:12px 14px"><b style="font-size:13px;color:var(--text)">${esc(g.title.en)}</b>
-     <div class="row-actions" style="margin-top:10px"><button class="icon-btn" data-edit="${g.id}">${LANG==='es'?'Editar':'Edit'}</button><button class="icon-btn danger" data-del="${g.id}">🗑</button></div></div></div>`).join('')}
+     <div class="row-actions" style="margin-top:10px;justify-content:space-between"><button class="icon-btn" data-edit="${g.id}">${LANG==='es'?'Editar':'Edit'}</button><label class="switch" title="${g.off?(LANG==='es'?'Mostrar':'Show'):(LANG==='es'?'Ocultar':'Hide')}"><input type="checkbox" data-toggle="${g.id}"${g.off?'':' checked'}><span class="tr"></span></label></div></div></div>`).join('')}
    </div></div>`;
   $('#galAdd').onclick=()=>galModal(null);
   $$('#admp-gallery [data-edit]').forEach(b=>b.onclick=()=>galModal(STORE.gallery.find(x=>x.id===b.dataset.edit)));
-  $$('#admp-gallery [data-del]').forEach(b=>b.onclick=()=>{if(!confirm('Delete?'))return;STORE.gallery=STORE.gallery.filter(x=>x.id!==b.dataset.del);saveStore();applyLang();adGallery();toast(t('toast_deleted'));});
+  $$('#admp-gallery [data-toggle]').forEach(c=>c.onchange=()=>{const g=STORE.gallery.find(x=>x.id===c.dataset.toggle);g.off=!c.checked;saveStore();applyLang();adGallery();toast(t('toast_saved'));});
   function galModal(g){
     const isNew=!g;g=g||{img:'g1',tag:{en:'',es:''},title:{en:'',es:''}};
     openModal(isNew?'Add piece':'Edit piece',`
@@ -651,11 +659,11 @@ function adTestimonials(){
    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px"><h3 style="margin:0">${LANG==='es'?'Reseñas':'Reviews'} (${STORE.testimonials.length})</h3>
    <button class="btn sm" id="tstAdd">+ ${LANG==='es'?'Añadir':'Add'}</button></div>
    ${STORE.testimonials.map(x=>`<div class="toggle-row"><div><b>${esc(x.name)} <span style="color:var(--gold)">${'★'.repeat(x.stars||5)}</span></b><small>${esc(x.text.en.slice(0,90))}…</small></div>
-    <div class="row-actions"><button class="icon-btn" data-edit="${x.id}">${LANG==='es'?'Editar':'Edit'}</button><button class="icon-btn danger" data-del="${x.id}">🗑</button></div></div>`).join('')}
+    <div class="row-actions"><button class="icon-btn" data-edit="${x.id}">${LANG==='es'?'Editar':'Edit'}</button><label class="switch" title="${x.off?(LANG==='es'?'Mostrar':'Show'):(LANG==='es'?'Ocultar':'Hide')}"><input type="checkbox" data-toggle="${x.id}"${x.off?'':' checked'}><span class="tr"></span></label></div></div>`).join('')}
   </div>`;
   $('#tstAdd').onclick=()=>tstModal(null);
   $$('#admp-testimonials [data-edit]').forEach(b=>b.onclick=()=>tstModal(STORE.testimonials.find(x=>x.id===b.dataset.edit)));
-  $$('#admp-testimonials [data-del]').forEach(b=>b.onclick=()=>{if(!confirm('Delete?'))return;STORE.testimonials=STORE.testimonials.filter(x=>x.id!==b.dataset.del);saveStore();applyLang();adTestimonials();toast(t('toast_deleted'));});
+  $$('#admp-testimonials [data-toggle]').forEach(c=>c.onchange=()=>{const x=STORE.testimonials.find(x=>x.id===c.dataset.toggle);x.off=!c.checked;saveStore();applyLang();adTestimonials();toast(t('toast_saved'));});
   function tstModal(x){
     const isNew=!x;x=x||{name:'',stars:5,text:{en:'',es:''}};
     openModal(isNew?'Add review':'Edit review',`
