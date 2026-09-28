@@ -366,7 +366,7 @@ footer{border-top:1px solid var(--line);background:#080605;padding:70px 0 0;marg
 #toast.show{transform:translate(-50%,0)}
 
 /* ---------- Admin ---------- */
-#admin{position:fixed;inset:0;z-index:1600;background:#0b0908;display:none;overflow-y:auto}
+#admin{position:fixed;inset:0;z-index:1600;background:#0b0908;display:none;overflow-y:auto;overflow-x:clip}
 #admin.open{display:block}
 .adm-login{min-height:100svh;display:grid;place-items:center;place-content:center;padding:24px}
 .adm-card{width:min(440px,94vw);background:linear-gradient(170deg,var(--card2),#100c0a);border:1px solid var(--line2);border-radius:24px;padding:52px 48px;text-align:center;box-shadow:var(--shadow)}
@@ -470,6 +470,14 @@ footer{border-top:1px solid var(--line);background:#080605;padding:70px 0 0;marg
   .stat-grid{grid-template-columns:1fr 1fr}
   #chatPanel{right:12px;bottom:100px}
   #chatFab{right:16px;bottom:18px}
+  .adm-top{padding:12px 14px;gap:10px}
+  .adm-top .brand{gap:9px;min-width:0}
+  .adm-top .brand .cm{width:34px;height:34px;font-size:14px}
+  .adm-top .brand .bt b{font-size:12px;letter-spacing:.08em;white-space:nowrap}
+  .adm-top .brand .bt span{font-size:7.5px;letter-spacing:.28em}
+  .adm-top-actions{gap:8px;flex:none}
+  .adm-top-actions .icon-btn{padding:7px 8px;font-size:10px;letter-spacing:.06em;white-space:nowrap}
+  .adm-tabs{padding:14px 14px 0;gap:4px}
   .f-bottom{padding-bottom:96px}
   .nav-cta .btn{display:none}
   .cal-day{font-size:13px}
