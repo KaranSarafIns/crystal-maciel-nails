@@ -430,6 +430,17 @@ footer{border-top:1px solid var(--line);background:#080605;padding:70px 0 0;marg
 .switch .tr::before{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:var(--dim);transition:all .3s var(--ease)}
 .switch input:checked+.tr{background:rgba(223,169,79,.35);border-color:var(--gold)}
 .switch input:checked+.tr::before{left:29px;background:var(--gold-hi)}
+.adm-hint{color:var(--dim);font-size:13px;margin:2px 0 6px}
+.hr-day{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:15px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.hr-day:last-child{border:0}
+.hr-day b{font-weight:400;font-size:15px;display:block}
+.hr-day small{color:var(--dim);font-size:12.5px}
+.hr-ctl{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.hr-ctl input[type=time]{background:#141010;border:1px solid var(--line2);color:var(--text);border-radius:10px;padding:8px 10px;font-size:13px;font-family:inherit;color-scheme:dark}
+.hr-ctl input[type=time]:disabled{opacity:.3}
+.hr-add{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.hr-add input{background:#141010;border:1px solid var(--line2);color:var(--text);border-radius:10px;padding:8px 10px;font-size:13px;font-family:inherit;color-scheme:dark}
+.hr-add input[type=text]{flex:1;min-width:140px}
 .adm-empty{text-align:center;color:var(--dim);padding:40px 20px;font-size:14px}
 .adm-back{display:inline-flex;align-items:center;gap:10px;color:var(--dim);font-size:12px;letter-spacing:.24em;text-transform:uppercase;background:none;border:0;margin-bottom:8px}
 .adm-back:hover{color:var(--gold)}

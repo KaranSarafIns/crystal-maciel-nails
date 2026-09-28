@@ -53,7 +53,7 @@ toast_pass_changed:"Password updated",toast_pass_mismatch:"Passwords don't match
 ad_login_t:"Studio",ad_login_p:"Enter your password to manage the site.",
 ad_pass:"Password",ad_signin:"Sign In",ad_back_site:"← Back to site",ad_dash:"Admin Dashboard",
 ad_view_site:"View site",ad_logout:"Log out",ad_t_dash:"Dashboard",ad_t_book:"Bookings",ad_t_svc:"Services",
-ad_t_gal:"Gallery",ad_t_tst:"Reviews",ad_t_content:"Content",ad_t_set:"Settings",
+ad_t_gal:"Gallery",ad_t_tst:"Reviews",ad_t_content:"Content",ad_t_hours:"Hours",ad_t_set:"Settings",
 mq:["Gel-X Extensions","Russian Manicure","Couture Nail Art","Acrylic Sculpting","Luxe Pedicure","Chrome & Cat-Eye"],
 },
 es:{
@@ -96,7 +96,7 @@ toast_pass_changed:"Contraseña actualizada",toast_pass_mismatch:"Las contraseñ
 ad_login_t:"Estudio",ad_login_p:"Ingresa tu contraseña para gestionar el sitio.",
 ad_pass:"Contraseña",ad_signin:"Entrar",ad_back_site:"← Volver al sitio",ad_dash:"Panel de Control",
 ad_view_site:"Ver sitio",ad_logout:"Cerrar sesión",ad_t_dash:"Resumen",ad_t_book:"Reservas",ad_t_svc:"Servicios",
-ad_t_gal:"Galería",ad_t_tst:"Reseñas",ad_t_content:"Contenido",ad_t_set:"Ajustes",
+ad_t_gal:"Galería",ad_t_tst:"Reseñas",ad_t_content:"Contenido",ad_t_hours:"Horas",ad_t_set:"Ajustes",
 mq:["Extensiones Gel-X","Manicura Rusa","Arte de Uñas Couture","Esculpido Acrílico","Pedicura de Lujo","Cromo y Ojo de Gato"],
 }};
 /* Storage that can never throw: if the browser blocks site data (private mode,
@@ -118,6 +118,21 @@ const t=k=>{const v=I18N[LANG][k];return v!==undefined?v:(I18N.en[k]??k);};
 
 /* ================= STORE ================= */
 const K={store:'cmn_store_v1',bookings:'cmn_bookings_v1',analytics:'cmn_analytics_v1',auth:'cmn_auth_v1'};
+/* ============ STUDIO HOURS (single source of truth) ============
+   Drives: footer/contact display, chatbot answers, and the booking
+   calendar + time slots. Edited from the Studio > Hours tab. */
+function defaultHours(){return {
+  days:{
+    mon:{open:false,from:'10:00',to:'19:00'},
+    tue:{open:true,from:'10:00',to:'19:00'},
+    wed:{open:true,from:'10:00',to:'19:00'},
+    thu:{open:true,from:'10:00',to:'19:00'},
+    fri:{open:true,from:'10:00',to:'19:00'},
+    sat:{open:true,from:'10:00',to:'19:00'},
+    sun:{open:true,from:'11:00',to:'17:00'},
+  },
+  off:[], /* exception dates: [{date:'2026-12-25',note:'Christmas'}] */
+};}
 function seedStore(){return {
 content:{
  heroKicker:{en:"San Fernando · Luxury Nail Atelier",es:"San Fernando · Atelier de Uñas de Lujo"},
@@ -171,12 +186,13 @@ settings:{chatbot:true,booking:true,gallery:true,testimonials:true}
 function loadJSON(k,f){try{const v=safeLS.getItem(k);return v?JSON.parse(v):f;}catch(e){return f;}}
 let STORE=loadJSON(K.store,null);
 if(!STORE){STORE=seedStore();safeLS.setItem(K.store,JSON.stringify(STORE));}
+if(!STORE.hours||!STORE.hours.days)STORE.hours=defaultHours(); /* migrate old stores */
 const saveStore=()=>{
   if(API.mode==='api'&&API.authed){
     apiPost('/api/admin/save',{table:'services',rows:STORE.services}).catch(apiSaveFail);
     apiPost('/api/admin/save',{table:'gallery',rows:STORE.gallery}).catch(apiSaveFail);
     apiPost('/api/admin/save',{table:'testimonials',rows:STORE.testimonials}).catch(apiSaveFail);
-    apiPost('/api/admin/save',{table:'kv',rows:[{key:'content',value:STORE.content},{key:'settings',value:STORE.settings}]}).catch(apiSaveFail);
+    apiPost('/api/admin/save',{table:'kv',rows:[{key:'content',value:STORE.content},{key:'settings',value:STORE.settings},{key:'hours',value:STORE.hours}]}).catch(apiSaveFail);
     return;
   }
   safeLS.setItem(K.store,JSON.stringify(STORE));
@@ -202,7 +218,7 @@ function apiFetch(path,opts={},timeoutMs=9000){
 async function apiGet(path,timeoutMs){const r=await apiFetch(path,{},timeoutMs||9000);if(!r.ok)throw new Error('api '+r.status);return r.json();}
 async function apiPost(path,body,timeoutMs){const r=await apiFetch(path,{method:'POST',body:JSON.stringify(body||{})},timeoutMs||9000);const j=await r.json().catch(()=>({}));if(!r.ok){const e=new Error('api '+r.status);e.json=j;throw e;}return j;}
 function applyServerData(d){
-  STORE={content:d.content||{},services:d.services||[],gallery:d.gallery||[],testimonials:d.testimonials||[],settings:d.settings||{}};
+  STORE={content:d.content||{},services:d.services||[],gallery:d.gallery||[],testimonials:d.testimonials||[],settings:d.settings||{},hours:d.hours||defaultHours()};
   BOOKINGS=d.bookings||[];
   if(d.analytics)ANALYTICS=d.analytics;
 }
@@ -212,7 +228,7 @@ async function bootBackend(){
     const d=await apiGet('/api/content',4500);
     if(!d||!d.content||!Array.isArray(d.services))throw new Error('bad payload');
     API.mode='api';
-    STORE={content:d.content,services:d.services,gallery:d.gallery,testimonials:d.testimonials,settings:d.settings};
+    STORE={content:d.content,services:d.services,gallery:d.gallery,testimonials:d.testimonials,settings:d.settings,hours:d.hours||defaultHours()};
     apiPost('/api/track',{type:'visit'}).catch(()=>{});
   }catch(e){/* stay in local mode */}
 }
@@ -291,9 +307,9 @@ function renderGallery(){
 $('#lbClose').onclick=()=>$('#lightbox').classList.remove('open');
 $('#lightbox').onclick=e=>{if(e.target.id==='lightbox')$('#lightbox').classList.remove('open');};
 function renderHours(){
-  const h=STORE.content.hours;
-  $('#ctHours').innerHTML=h.map(r=>{const closed=/closed|cerrado/i.test(r.t);return `<li class="${closed?'closed':''}"><span>${esc(LANG==='es'?r.d_es:r.d_en)}</span><span>${closed?t('closed'):esc(r.t)}</span></li>`;}).join('');
-  $('#fHours').innerHTML=h.map(r=>`<li>${esc(LANG==='es'?r.d_es:r.d_en)} · ${/closed|cerrado/i.test(r.t)?t('closed'):esc(r.t)}</li>`).join('');
+  const rows=hoursRows();
+  $('#ctHours').innerHTML=rows.map(r=>`<li class="${r.closed?'closed':''}"><span>${esc(r.label)}</span><span>${r.closed?t('closed'):esc(r.time)}</span></li>`).join('');
+  $('#fHours').innerHTML=rows.map(r=>`<li>${esc(r.label)} · ${r.closed?t('closed'):esc(r.time)}</li>`).join('');
 }
 function renderAboutList(){
   $('#aboutList').innerHTML=STORE.content.aboutBullets.map(b=>`<li><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M20 6L9 17l-5-5"/></svg><span>${esc(L2(b))}</span></li>`).join('');
@@ -315,22 +331,50 @@ $('#tstNext').onclick=()=>tstGo((tstIdx+1)%STORE.testimonials.length);
 /* ================= BOOKING ================= */
 const bk={step:1,serviceId:null,date:null,time:null,calCursor:new Date()};
 function hoursFor(date){
-  const d=date.getDay();
-  if(d===1)return null;
-  if(d===0)return {open:11,close:17};
-  return {open:10,close:19};
+  const H=(STORE&&STORE.hours&&STORE.hours.days)?STORE.hours:defaultHours();
+  const s=ymd(date);
+  if(H.off&&H.off.some(x=>x.date===s))return null; /* holiday / exception */
+  const key=['sun','mon','tue','wed','thu','fri','sat'][date.getDay()];
+  const d=H.days[key];
+  if(!d||!d.open)return null;
+  const p=t=>{const[a,b]=String(t).split(':').map(Number);return a+(b||0)/60;};
+  const o=p(d.from),c=p(d.to);
+  return (c>o)?{open:o,close:c}:null;
 }
 function slotsFor(dateStr){
   const h=hoursFor(parseYMD(dateStr));if(!h)return [];
   const out=[];const now=new Date();const today=ymd(now);
-  for(let hr=h.open;hr<h.close;hr++){
-    const label=(hr%12===0?12:hr%12)+':00 '+(hr<12?'AM':'PM');
+  for(let m=Math.round(h.open*60);m<Math.round(h.close*60);m+=60){
+    const hr=Math.floor(m/60),mn=m%60;
+    const label=(hr%12===0?12:hr%12)+':'+String(mn).padStart(2,'0')+' '+(hr<12?'AM':'PM');
     let taken=BOOKINGS.some(b=>b.date===dateStr&&b.time===label&&b.status!=='cancelled');
-    if(dateStr===today){const cutoff=new Date();cutoff.setHours(hr,0,0,0);if(cutoff<now)taken=true;}
+    if(dateStr===today){const cutoff=new Date();cutoff.setHours(hr,mn,0,0);if(cutoff<now)taken=true;}
     out.push({label,taken});
   }
   return out;
 }
+/* ---- hours display helpers (footer, contact, chatbot) ---- */
+const HDAY_ORDER=['mon','tue','wed','thu','fri','sat','sun'];
+const HDAY_NAMES={en:{mon:'Monday',tue:'Tuesday',wed:'Wednesday',thu:'Thursday',fri:'Friday',sat:'Saturday',sun:'Sunday'},
+  es:{mon:'Lunes',tue:'Martes',wed:'Miércoles',thu:'Jueves',fri:'Viernes',sat:'Sábado',sun:'Domingo'}};
+const MON_S={en:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+  es:['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']};
+function fmtT(t){let[h,m]=String(t).split(':').map(Number);const ap=h<12?'AM':'PM';h=h%12===0?12:h%12;return h+':'+String(m).padStart(2,'0')+' '+ap;}
+function fmtD(s){const[y,m,d]=String(s).split('-').map(Number);const M=MON_S[LANG==='es'?'es':'en'];return M[m-1]+' '+d+', '+y;}
+function hoursRows(){
+  const H=(STORE&&STORE.hours&&STORE.hours.days)?STORE.hours:defaultHours();
+  const L=LANG==='es'?'es':'en',rows=[];let i=0;
+  while(i<HDAY_ORDER.length){
+    const k=HDAY_ORDER[i],d=H.days[k],sig=d.open?d.from+'-'+d.to:'x';
+    let j=i;
+    while(j+1<HDAY_ORDER.length){const nd=H.days[HDAY_ORDER[j+1]],ns=nd.open?nd.from+'-'+nd.to:'x';if(ns!==sig)break;j++;}
+    rows.push({label:i===j?HDAY_NAMES[L][HDAY_ORDER[i]]:HDAY_NAMES[L][HDAY_ORDER[i]]+' – '+HDAY_NAMES[L][HDAY_ORDER[j]],
+      time:d.open?fmtT(d.from)+' – '+fmtT(d.to):null,closed:!d.open});
+    i=j+1;
+  }
+  return rows;
+}
+function upcomingOff(){const H=STORE&&STORE.hours;if(!H||!H.off)return[];const t=ymd(new Date());return H.off.filter(x=>x.date&&x.date>=t).sort((a,b)=>a.date<b.date?-1:1).slice(0,6);}
 function renderBookingServices(){
   $('#bkSvcList').innerHTML=STORE.services.filter(s=>!s.off).map(s=>`
    <div class="bk-svc${bk.serviceId===s.id?' sel':''}" data-svc="${s.id}">
@@ -443,11 +487,11 @@ const biTA=(base,label,obj,key)=>`<div class="field"><label>${label} — EN</lab
 /* ================= CHATBOT ================= */
 let chatStarted=false;
 const R=(en,es)=>LANG==='es'?es:en;
-function botHours(){return STORE.content.hours.map(r=>`• ${LANG==='es'?r.d_es:r.d_en}: ${/closed|cerrado/i.test(r.t)?t('closed'):r.t}`).join('\n');}
+function botHours(){return hoursRows().map(r=>`• ${r.label}: ${r.closed?t('closed'):r.time}`).join('\n');}
 function botServices(){return STORE.services.filter(s=>!s.off).map(s=>`• ${L2(s.name)} — $${s.price}${s.priceNote?' ('+t('from')+')':''}`).join('\n');}
 const INTENTS=[
  {k:['hello','hi','hey','good morning','good evening','hola','buenas','buenos dias','buenas tardes','hey '],a:()=>R("Hello! Great to see you. I can share services & prices, hours, location, or help you book.","¡Hola! Qué bueno verte. Puedo contarte de servicios y precios, horario, ubicación o ayudarte a reservar.")},
- {k:['hour','open','close','schedule','when are you','horario','abierto','abre','cierra','cierran','a que hora'],a:()=>R("We're open:\n"+botHours()+"\nMondays we're closed.", "Nuestro horario:\n"+botHours()+"\nLos lunes cerramos.")},
+ {k:['hour','open','close','schedule','when are you','horario','abierto','abre','cierra','cierran','a que hora'],a:()=>{const off=upcomingOff();const extra=off.length?(LANG==='es'?'\n\nTambién cerrado: ':'\n\nAlso closed: ')+off.map(x=>fmtD(x.date)+(x.note?' ('+x.note+')':'')).join(', '):'';return R("Here are our hours:\n"+botHours()+extra,"Este es nuestro horario:\n"+botHours()+extra);}},
  {k:['where','address','located','location','direction','map','donde','ubicaci','direcci','llegar','encuentran'],a:()=>R(`You'll find us at ${STORE.content.address}. Tap "Get Directions" in the Contact section and it'll guide you right here.`,"Nos encuentras en "+STORE.content.address+". Toca «Cómo Llegar» en la sección de Contacto y te guiará hasta aquí.")},
  {k:['phone','call','text','number','contact','tel','telefono','llamar','llamada','numero','contacto'],a:()=>R(`Call or text us anytime at ${STORE.content.phone} — we reply fast.`,"Llámanos o escríbenos al "+STORE.content.phone+" — respondemos rápido.")},
  {k:['russian','rusa','rusas'],a:()=>{const s=STORE.services.find(x=>/russian|rusa/i.test(x.name.en));return R(`The Russian manicure ($${s?s.price:85}) uses a dry e-file technique for glass-smooth cuticles and weeks of flawless wear. It's our most requested service.`,"La manicura rusa ($"+(s?s.price:85)+") usa torno en seco para cutículas perfectas y semanas de acabado impecable. Es nuestro servicio más pedido.");}},
@@ -591,7 +635,7 @@ function adTab(name){
   AD.tab=name;
   $$('#admTabs .adm-tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===name));
   $$('.adm-pane').forEach(p=>p.classList.remove('on'));$('#admp-'+name).classList.add('on');
-  ({dash:adDash,bookings:adBookings,services:adServices,gallery:adGallery,testimonials:adTestimonials,content:adContent,settings:adSettings})[name]();
+  ({dash:adDash,bookings:adBookings,services:adServices,gallery:adGallery,testimonials:adTestimonials,content:adContent,hours:adHours,settings:adSettings})[name]();
 }
 function statCard(label,val){return `<div class="stat"><small>${label}</small><b>${val}</b></div>`;}
 function adDash(){
@@ -768,12 +812,15 @@ function adContent(){
   </div></div>
   <div class="panel" style="margin-top:18px"><h3>${LANG==='es'?'Contacto y horario':'Contact & hours'}</h3><div class="adm-form">
    ${fld('caddr','Address',c.address)}${fld('cphone','Phone display',c.phone)}${fld('cphonehref','Phone link (tel:)',c.phoneHref)}${fld('cmap','Google Maps URL',c.mapUrl)}
-   <div class="field"><label>Hours — one per line: Day EN | Day ES | Time  (use "Closed" for closed days)</label>
-    <textarea id="chours" rows="4">${c.hours.map(h=>esc(h.d_en+' | '+h.d_es+' | '+h.t)).join('\n')}</textarea></div>
+   <div class="field"><label>${LANG==='es'?'Horario — se gestiona en la pestaña Horas':'Hours — managed in the Hours tab'}</label>
+    <input type="text" disabled value="${esc(hoursRows().map(r=>r.label+': '+(r.closed?t('closed'):r.time)).join('  ·  '))}" style="opacity:.6"></div>
    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">${fld('stY','Stat: years',c.stats.years)}${fld('stS','Stat: sets',c.stats.sets)}${fld('stR','Stat: rating',c.stats.rating)}</div>
    ${biTA('cft','Footer tagline',c,'footerTag')}
   </div></div>
-  <div style="margin-top:22px"><button class="btn" id="cSave">${LANG==='es'?'Guardar Todo':'Save All'}</button></div>`;
+  <div style="margin-top:22px;display:flex;gap:12px;flex-wrap:wrap;align-items:center"><button class="btn" id="cSave">${LANG==='es'?'Guardar Todo':'Save All'}</button>
+   <button class="icon-btn danger" id="cRestore">${LANG==='es'?'Restaurar texto original':'Restore original text'}</button></div>`;
+  $('#cRestore').onclick=()=>{if(!confirm(LANG==='es'?'¿Restaurar el texto original? Se perderán tus cambios de texto.':'Restore the original text? Your text edits will be lost.'))return;
+    STORE.content=seedStore().content;saveStore();applyLang();initContactBits();adContent();toast(t('toast_saved'));};
   $('#cSave').onclick=()=>{
     const g=id=>$('#'+id).value.trim();
     const B=(base,obj,key)=>{obj[key]={en:g(base+'_en'),es:g(base+'_es')||g(base+'_en')};};
@@ -781,7 +828,6 @@ function adContent(){
     const TA=(base,obj,key)=>{obj[key]={en:$('#'+base+'_en').value.trim(),es:$('#'+base+'_es').value.trim()||$('#'+base+'_en').value.trim()};};
     TA('cs',c,'heroSub');TA('ap1',c,'aboutP1');TA('ap2',c,'aboutP2');TA('cft',c,'footerTag');
     c.aboutBullets=$('#cbullets').value.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{const[a,b]=l.split('|');return{en:(a||'').trim(),es:(b||a||'').trim()};});
-    c.hours=$('#chours').value.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{const[a,b,tm]=l.split('|');return{d_en:(a||'').trim(),d_es:(b||a||'').trim(),t:(tm||'').trim()};});
     c.address=g('caddr');c.phone=g('cphone');c.phoneHref=g('cphonehref');c.mapUrl=g('cmap');
     c.stats={years:g('stY'),sets:g('stS'),rating:g('stR')};
     saveStore();applyLang();initContactBits();toast(t('toast_saved'));
@@ -790,6 +836,40 @@ function adContent(){
 function initContactBits(){
   $('#ctAddress').textContent=STORE.content.address;$('#fAddress').textContent=STORE.content.address;
   const ph=$('#ctPhone');ph.textContent=STORE.content.phone;ph.href=STORE.content.phoneHref;$('#mapBtn').href=STORE.content.mapUrl;
+}
+function adHours(){
+  const H=STORE.hours;
+  const days=[['mon','Monday','Lunes'],['tue','Tuesday','Martes'],['wed','Wednesday','Miércoles'],['thu','Thursday','Jueves'],['fri','Friday','Viernes'],['sat','Saturday','Sábado'],['sun','Sunday','Domingo']];
+  const dayRows=days.map(([k,en,es])=>{const d=H.days[k];return `
+   <div class="hr-day">
+    <div><b>${LANG==='es'?es:en}</b><small>${d.open?fmtT(d.from)+' – '+fmtT(d.to):t('closed')}</small></div>
+    <div class="hr-ctl">
+     <input type="time" value="${d.from}" data-hf="${k}"${d.open?'':' disabled'}>
+     <span style="color:var(--dim)">–</span>
+     <input type="time" value="${d.to}" data-ht="${k}"${d.open?'':' disabled'}>
+     <label class="switch"><input type="checkbox" data-hd="${k}"${d.open?' checked':''}><span class="tr"></span></label>
+    </div>
+   </div>`;}).join('');
+  const offRows=H.off.length?H.off.map((x,i)=>`
+   <div class="hr-day"><div><b>${esc(fmtD(x.date))}</b><small>${esc(x.note||t('closed'))}</small></div>
+    <button class="icon-btn danger" data-offdel="${i}">✕</button></div>`).join('')
+   :`<p class="adm-empty">${LANG==='es'?'Sin fechas especiales':'No special dates yet'}</p>`;
+  $('#admp-hours').innerHTML=`
+   <div class="panel"><h3>${LANG==='es'?'Horario semanal':'Weekly hours'}</h3>
+    <p class="adm-hint">${LANG==='es'?'Activa cada día y ajusta su horario. El calendario de reservas se actualiza solo.':'Toggle each day and set its hours. The booking calendar follows automatically.'}</p>
+    ${dayRows}</div>
+   <div class="panel" style="margin-top:18px"><h3>${LANG==='es'?'Fechas especiales':'Special dates'}</h3>
+    <p class="adm-hint">${LANG==='es'?'Festivos u otros días cerrados — se bloquean en el calendario.':'Holidays or other closed days — blocked on the calendar.'}</p>
+    <div class="hr-add"><input type="date" id="offDate"><input type="text" id="offNote" placeholder="${LANG==='es'?'Motivo (opcional)':'Reason (optional)'}"><button class="icon-btn" id="offAdd">${LANG==='es'?'Añadir':'Add'}</button></div>
+    <div style="margin-top:6px">${offRows}</div></div>`;
+  const refresh=()=>{saveStore();renderHours();drawCalendar();drawSlots();};
+  $$('#admp-hours [data-hd]').forEach(sw=>sw.onchange=()=>{H.days[sw.dataset.hd].open=sw.checked;refresh();adHours();});
+  $$('#admp-hours [data-hf]').forEach(inp=>inp.onchange=()=>{H.days[inp.dataset.hf].from=inp.value||'10:00';refresh();adHours();});
+  $$('#admp-hours [data-ht]').forEach(inp=>inp.onchange=()=>{H.days[inp.dataset.ht].to=inp.value||'19:00';refresh();adHours();});
+  $('#offAdd').onclick=()=>{const dv=$('#offDate').value;if(!dv)return toast(LANG==='es'?'Elige una fecha':'Pick a date');
+    if(H.off.some(x=>x.date===dv))return toast(LANG==='es'?'Ya añadida':'Already added');
+    H.off.push({date:dv,note:$('#offNote').value.trim()});refresh();adHours();toast(t('toast_saved'));};
+  $$('#admp-hours [data-offdel]').forEach(b=>b.onclick=()=>{H.off.splice(+b.dataset.offdel,1);refresh();adHours();});
 }
 function adSettings(){
   const s=STORE.settings;
@@ -808,8 +888,6 @@ function adSettings(){
     </div>
    </div>
    <div class="panel" style="margin-top:18px"><h3>${LANG==='es'?'Datos':'Data'}</h3>
-    <div class="toggle-row"><div><b>${LANG==='es'?'Exportar respaldo':'Export backup'}</b><small>JSON</small></div><button class="icon-btn" id="dlBackup">↓ JSON</button></div>
-    <div class="toggle-row"><div><b style="color:var(--rose)">${LANG==='es'?'Restablecer demo':'Reset demo data'}</b><small>${LANG==='es'?'Restaura servicios, galería y contenido original':'Restore original services, gallery & content'}</small></div><button class="icon-btn danger" id="resetAll">${LANG==='es'?'Restablecer':'Reset'}</button></div>
    </div>`;
   $$('#admp-settings [data-tg]').forEach(sw=>sw.onchange=()=>{STORE.settings[sw.dataset.tg]=sw.checked;saveStore();applyFeatures();toast(t('toast_saved'));});
   $('#pwSave').onclick=async()=>{
@@ -825,12 +903,6 @@ function adSettings(){
     }
     $('#pwCur').value=$('#pwNew').value=$('#pwNew2').value='';toast(t('toast_pass_changed'));
   };
-  $('#dlBackup').onclick=()=>{
-    const blob=new Blob([JSON.stringify({store:STORE,bookings:BOOKINGS,analytics:ANALYTICS},null,2)],{type:'application/json'});
-    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='crystal-maciel-backup.json';a.click();
-  };
-  $('#resetAll').onclick=()=>{if(!confirm(LANG==='es'?'¿Segura? Se restaurará el contenido original.':'Sure? Original content will be restored.'))return;
-    STORE=seedStore();saveStore();applyLang();initContactBits();adDash();toast(t('toast_reset'));};
 }
 /* hash router */
 function route(){
